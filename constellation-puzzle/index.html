@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Die dunkle Saat | Konstellationen Puzzle</title>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #222;
+    }
+
+    #pixi-canvas {
+      display: block;
+      margin: 0 auto;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js"
+    integrity="sha512-ZeDYV/OyThwmc4xEYzd4SUCxQ+AOgLeWoFhF3phc0wRplbVLgAVeAUr+uRdgxwoijvv13nOsazmgmtin7dHHCg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    PIXI.Loader.shared.reset();
+    PIXI.Loader.shared
+      .add('base', './parts/base.png')
+      .add('a', './parts/a.png')
+      .add('b', './parts/b.png')
+      .add('c', './parts/c.png')
+      .add('d', './parts/d.png')
+      .add('ms1', './parts/ms1.png')
+      .add('e', './parts/e.png')
+      .add('f', './parts/f.png')
+      .add('g', './parts/g.png')
+      .add('h', './parts/h.png')
+      .add('ms2', './parts/ms2.png');
+
+    PIXI.Loader.shared.load((_, resources) => {
+      function resizeBaseToFitStage() {
+        const stageWidth = app.screen.width;
+        const stageHeight = app.screen.height;
+        const baseWidth = BASE.texture.width;
+        const baseHeight = BASE.texture.height;
+
+        const scale = Math.min(
+          stageWidth / baseWidth,
+          stageHeight / baseHeight
+        );
+
+        BASE.scale.set(scale * 0.95);
+        BASE.x = stageWidth / 2;
+        BASE.y = stageHeight / 2;
+      }
+
+      const app = new PIXI.Application({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundColor: 0x222222,
+        view: undefined,
+        resizeTo: window,
+        antialias: true,
+      });
+      document.body.appendChild(app.view);
+
+      app.stage.interactive = true;
+
+      const BASE = new PIXI.Sprite(resources.base.texture);
+      BASE.anchor.set(0.5);
+      app.stage.addChild(BASE);
+      resizeBaseToFitStage();
+
+      function createSprite(img, x, y, interactive = true) {
+        const sprite = new PIXI.Sprite(img.texture);
+        sprite.anchor.set(0.5);
+        sprite.x = x;
+        sprite.y = y;
+        sprite.interactive = interactive;
+        sprite.cursor = 'pointer';
+        sprite.hitarea = new PIXI.Circle(0, 0, sprite.width);
+        return sprite;
+      }
+
+      const BASEH = 1017 / 2;
+      const MS1H = 517 / 2;
+      const A = createSprite(resources.a, 508 - BASEH, 874 - BASEH);
+      const B = createSprite(resources.b, 147 - BASEH, 572 - BASEH);
+      const C = createSprite(resources.c, 444 - BASEH, 147 - BASEH);
+      const D = createSprite(resources.d, 868 - BASEH, 445 - BASEH);
+      const MS1 = createSprite(resources.ms1, 0, 0);
+      const E = createSprite(resources.e, 332 - MS1H, 439 - MS1H);
+      const F = createSprite(resources.f, 77 - MS1H, 331 - MS1H);
+      const G = createSprite(resources.g, 185 - MS1H, 77 - MS1H);
+      const H = createSprite(resources.h, 440 - MS1H, 185 - MS1H);
+      const MS2 = new PIXI.Sprite(resources.ms2.texture);
+      MS2.anchor.set(0.5);
+
+      BASE.addChild(A);
+      BASE.addChild(B);
+      BASE.addChild(C);
+      BASE.addChild(D);
+      BASE.addChild(MS1);
+      MS1.addChild(E);
+      MS1.addChild(F);
+      MS1.addChild(G);
+      MS1.addChild(H);
+      BASE.addChild(MS2);
+
+      let dragging = false;
+      let startAngle = 0;
+      let startPointerAngle = 0;
+      let activeSprite = null;
+      let solved = false;
+
+      function getPointerAngleFromEvent(event, targetSprite) {
+        const pos = event.data.getLocalPosition(targetSprite.parent);
+        return Math.atan2(pos.y - targetSprite.y, pos.x - targetSprite.x);
+      }
+
+      function onPointerDownFactory(targetSprite) {
+        return function (event) {
+          if (solved) {
+            return;
+          }
+          dragging = true;
+          activeSprite = targetSprite;
+          startAngle = targetSprite.rotation;
+          startPointerAngle = getPointerAngleFromEvent(event, targetSprite);
+          app.stage.on('pointermove', onPointerMove);
+          app.stage.on('pointerup', onPointerUp);
+          app.stage.on('pointerupoutside', onPointerUp);
+          event.stopPropagation();
+        };
+      }
+
+      A.on('pointerdown', onPointerDownFactory(A));
+      B.on('pointerdown', onPointerDownFactory(B));
+      C.on('pointerdown', onPointerDownFactory(C));
+      D.on('pointerdown', onPointerDownFactory(D));
+      E.on('pointerdown', onPointerDownFactory(E));
+      F.on('pointerdown', onPointerDownFactory(F));
+      G.on('pointerdown', onPointerDownFactory(G));
+      H.on('pointerdown', onPointerDownFactory(H));
+      MS1.on('pointerdown', onPointerDownFactory(MS1));
+
+      function randomizeRotation(sprite) {
+        sprite.rotation = Math.random() * Math.PI * 2;
+      }
+
+      randomizeRotation(A);
+      randomizeRotation(B);
+      randomizeRotation(C);
+      randomizeRotation(D);
+      randomizeRotation(E);
+      randomizeRotation(F);
+      randomizeRotation(G);
+      randomizeRotation(H);
+      randomizeRotation(MS1);
+
+      function arcAround(centerRadian, degreeArc = 10) {
+        const toRadians = deg => deg * (Math.PI / 180);
+        const halfArc = toRadians(degreeArc / 2);
+
+        const start = centerRadian - halfArc;
+        const end = centerRadian + halfArc;
+
+        return { start, end };
+      }
+
+      function isAngleInArc(angle, startAngle, endAngle, clockwise = false) {
+        // Normalize all angles to [0, 2π)
+        const TAU = Math.PI * 2;
+        const normalize = a => ((a % TAU) + TAU) % TAU;
+
+        angle = normalize(angle);
+        startAngle = normalize(startAngle);
+        endAngle = normalize(endAngle);
+
+        if (clockwise) {
+          // Invert direction: swap start and end
+          [startAngle, endAngle] = [endAngle, startAngle];
+          return !(startAngle < endAngle
+            ? (angle > startAngle && angle < endAngle)
+            : (angle > startAngle || angle < endAngle));
+        } else {
+          return startAngle < endAngle
+            ? (angle >= startAngle && angle <= endAngle)
+            : (angle >= startAngle || angle <= endAngle);
+        }
+      }
+
+      const solution = [
+        arcAround(0.0973),
+        arcAround(0),
+        arcAround(0),
+        arcAround(0),
+        arcAround(1.5652),
+        arcAround(0),
+        arcAround(0),
+        arcAround(3.143),
+        arcAround(0),
+      ];
+
+      const knobs = [A, B, C, D, E, F, G, H, MS1];
+
+      function checkSolution() {
+        const rotations = knobs.map(knob => (knob.rotation));
+        console.log(rotations);
+
+        if (rotations.every((val, index) => isAngleInArc(val, solution[index].start, solution[index].end))) {
+          solved = true;
+          app.renderer.backgroundColor = 0xffffc300;
+          onPointerUp();
+        } else {
+          // solved = false;
+          // app.renderer.backgroundColor = 0x222222;
+        }
+      }
+
+      function onPointerMove(e) {
+        if (!dragging || !activeSprite) return;
+        const pointerAngle = getPointerAngleFromEvent(e, activeSprite);
+        activeSprite.rotation = pointerAngle - startPointerAngle + startAngle;
+
+        checkSolution();
+      }
+
+      function onPointerUp() {
+        dragging = false;
+        activeSprite = null;
+        app.stage.off('pointermove', onPointerMove);
+        app.stage.off('pointerup', onPointerUp);
+        app.stage.off('pointerupoutside', onPointerUp);
+      }
+
+      window.addEventListener('resize', () => {
+        resizeBaseToFitStage();
+      });
+
+      window.addEventListener('orientationchange', () => {
+        setTimeout(resizeBaseToFitStage, 100);
+      });
+
+      resizeBaseToFitStage();
+    });
+  </script>
+</body>
+
+</html>

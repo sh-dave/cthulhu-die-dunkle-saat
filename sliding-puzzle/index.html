@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Die dunkle Saat | Schiebe Puzzle</title>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #222;
+    }
+
+    #pixi-canvas {
+      display: block;
+      margin: 0 auto;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js" integrity="sha512-ZeDYV/OyThwmc4xEYzd4SUCxQ+AOgLeWoFhF3phc0wRplbVLgAVeAUr+uRdgxwoijvv13nOsazmgmtin7dHHCg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    const params = {
+      img: './puzzle.png',
+      cols: 3,
+      rows: 3,
+      empty: 6,
+    };
+
+    let app, baseW, baseH, tileW, tileH, tileSprites = [], shuffled, emptyIdx = params.empty, texture, solved;
+
+    function resizeBaseToFitStage() {
+      const stageWidth = app.screen.width;
+      const stageHeight = app.screen.height;
+      const baseWidth = baseW;
+      const baseHeight = baseH;
+
+      const scale = Math.min(
+        stageWidth / baseWidth,
+        stageHeight / baseHeight
+      );
+
+      BASE.scale.set(scale * 0.95);
+      BASE.x = stageWidth / 2;
+      BASE.y = stageHeight / 2;
+
+      const bounds = BASE.getLocalBounds();
+      BASE.pivot.set(bounds.width / 2, bounds.height / 2);
+    }
+
+    function getPuzzleSize() {
+      const w = window.innerWidth * 0.95;
+      const h = window.innerHeight * 0.95;
+      return Math.floor(Math.min(w, h));
+    }
+
+    function indexToRC(idx) {
+      return [Math.floor(idx / params.cols), idx % params.cols];
+    }
+    function areAdjacent(idx1, idx2) {
+      const [r1, c1] = indexToRC(idx1);
+      const [r2, c2] = indexToRC(idx2);
+      return (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+    }
+
+    function shuffleTiles() {
+      shuffled = [emptyIdx, 0, 7, 4, 2, 1, 3, 8, 5];
+    }
+
+    function createTiles() {
+      tileSprites = [];
+      for (let tileIdx = 0; tileIdx < params.cols * params.rows; ++tileIdx) {
+        if (tileIdx === emptyIdx) {
+          tileSprites[tileIdx] = null;
+          continue;
+        }
+        const sprite = new PIXI.Sprite();
+        sprite.interactive = true;
+        sprite.buttonMode = true;
+        const [r, c] = indexToRC(tileIdx);
+        const frame = new PIXI.Rectangle(
+          c * texture.width / params.cols,
+          r * texture.height / params.rows,
+          texture.width / params.cols,
+          texture.height / params.rows
+        );
+        sprite.texture = new PIXI.Texture(texture.baseTexture, frame);
+        sprite.on('pointerdown', () => {
+          const pos = shuffled.indexOf(tileIdx);
+          tryMove(pos);
+        });
+        BASE.addChild(sprite);
+        tileSprites[tileIdx] = sprite;
+      }
+    }
+
+    let sliding = false;
+
+    function slide(sprite, startX, startY, endX, endY, duration) {
+      sprite.position.set(startX, startY);
+      const startTime = performance.now();
+
+      function animate() {
+        const now = performance.now();
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        sprite.x = startX + (endX - startX) * t;
+        sprite.y = startY + (endY - startY) * t;
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          sliding = false;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function updateTiles() {
+      for (let pos = 0; pos < params.cols * params.rows; ++pos) {
+        const tileIdx = shuffled[pos];
+        if (tileIdx === emptyIdx) continue;
+        const sprite = tileSprites[tileIdx];
+        sprite.width = tileW;
+        sprite.height = tileH;
+        sprite.x = (pos % params.cols) * tileW;
+        sprite.y = Math.floor(pos / params.cols) * tileH;
+      }
+    }
+
+    const solution = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    function checkSolution() {
+      if (shuffled.every((val, index) => val === solution[index])) {
+        solved = true;
+        app.renderer.backgroundColor = 0xffffc300;
+      }
+    }
+
+    function tryMove(pos) {
+      if (sliding || solved) return;
+      const emptyPos = shuffled.indexOf(emptyIdx);
+      console.log(`pos: ${pos}, empt: ${emptyPos}`);
+      if (!areAdjacent(pos, emptyPos)) return;
+      sliding = true;
+      const [er, ec] = indexToRC(emptyPos);
+      const src = tileSprites[shuffled[pos]];
+      slide(src, src.x, src.y, ec * tileW, er * tileH, 100);
+      [shuffled[pos], shuffled[emptyPos]] = [shuffled[emptyPos], shuffled[pos]];
+
+      checkSolution();
+    }
+
+    function startPuzzle(tex) {
+      texture = tex;
+      shuffleTiles();
+      createTiles();
+      updateTiles();
+    }
+
+    function resizeApp() {
+      const size = getPuzzleSize();
+      app.renderer.resize(size, size);
+      updateTiles();
+    }
+
+    const size = getPuzzleSize();
+    app = new PIXI.Application({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      backgroundColor: 0x222222,
+      view: undefined,
+      resizeTo: window,
+      antialias: true,
+    });
+    document.body.appendChild(app.view);
+
+    const BASE = new PIXI.Container();
+    BASE.pivot.set(-0.5, -0.5);
+    app.stage.addChild(BASE);
+    resizeBaseToFitStage();
+
+    PIXI.Loader.shared.reset();
+    PIXI.Loader.shared.add('img', params.img).load((_, resources) => {
+      baseW = resources.img.texture.width;
+      baseH = resources.img.texture.height;
+      tileW = baseW / params.cols;
+      tileH = baseH / params.rows;
+      startPuzzle(resources.img.texture);
+      resizeBaseToFitStage()
+    });
+
+    window.addEventListener('resize', () => {
+      resizeBaseToFitStage();
+    });
+
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeBaseToFitStage, 100);
+    });
+  </script>
+</body>
+
+</html>
